@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="试衣间 — 点击或拖到模特身上，虚拟试穿外套与裤装。">
+  <meta name="description" content="试衣间 — 精选搭配或自定义上传照片与衣服，在浏览器里贴图试穿。">
   <title>试衣间 · Fitting Room</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,38 +18,109 @@
       <span class="logo-en">Fitting Room</span>
       <span class="logo-zh">试衣间</span>
     </a>
-    <p class="hint">两侧滑动，拖到模特身上，或点击单品试穿</p>
+    <div class="top-center">
+      <nav class="mode-switch" role="tablist" aria-label="试衣模式">
+        <button type="button" role="tab" id="tab-curated" aria-selected="true" aria-controls="curated-root" class="is-on">精选试衣</button>
+        <button type="button" role="tab" id="tab-custom" aria-selected="false" aria-controls="custom-studio">自定义试穿</button>
+      </nav>
+      <p class="hint" id="mode-hint">两侧滑动，拖到模特身上，或点击单品试穿</p>
+    </div>
     <button type="button" class="cart-btn" id="cart-btn" aria-label="打开购物车，当前 0 件" aria-controls="cart-drawer" aria-expanded="false">
       <span class="cart-label">购物车</span>
       <span class="cart-count" id="cart-count">0</span>
     </button>
   </header>
 
-  <main class="stage">
-    <div class="strip jackets-strip" id="jackets-strip" aria-label="外套"></div>
+  <div id="curated-root">
+    <main class="stage">
+      <div class="strip jackets-strip" id="jackets-strip" aria-label="外套"></div>
 
-    <div class="model-wrap" id="model-wrap" data-drop="true">
-      <div class="model-frame" id="model-frame">
-        <img class="model-img is-visible" id="model-a" src="assets/model-camel-sand.jpg" alt="模特正穿着驼色灯芯绒羽绒服与沙色摇粒绒束脚裤">
-        <img class="model-img" id="model-b" alt="" aria-hidden="true">
+      <div class="model-wrap" id="model-wrap" data-drop="true">
+        <div class="model-frame" id="model-frame">
+          <img class="model-img is-visible" id="model-a" src="assets/model-camel-sand.jpg" alt="模特正穿着驼色灯芯绒羽绒服与沙色摇粒绒束脚裤">
+          <img class="model-img" id="model-b" alt="" aria-hidden="true">
+        </div>
+        <p class="drop-hint" aria-hidden="true">松手即可试穿</p>
       </div>
-      <p class="drop-hint" aria-hidden="true">松手即可试穿</p>
+
+      <div class="strip pants-strip" id="pants-strip" aria-label="裤装"></div>
+    </main>
+
+    <footer class="dock">
+      <button type="button" class="chip" id="chip-jacket" title="将当前外套加入购物车">
+        <span class="chip-k">外套</span>
+        <span class="chip-v" id="jacket-name">驼色灯芯绒羽绒服</span>
+      </button>
+      <button type="button" class="chip" id="chip-pants" title="将当前裤装加入购物车">
+        <span class="chip-k">裤装</span>
+        <span class="chip-v" id="pants-name">沙色摇粒绒束脚裤</span>
+      </button>
+      <button type="button" class="add-btn" id="add-btn">加入购物车</button>
+    </footer>
+  </div>
+
+  <section class="custom-studio" id="custom-studio" hidden>
+    <aside class="custom-panel custom-panel-model">
+      <h2 class="custom-h">模特</h2>
+      <div class="file-row">
+        <label class="file-btn">
+          上传我的照片
+          <input type="file" id="upload-model" accept="image/*" hidden>
+        </label>
+        <label class="file-btn file-btn-ghost" title="把脸贴到当前模特头上">
+          上传头像
+          <input type="file" id="upload-face" accept="image/*" hidden>
+        </label>
+      </div>
+      <button type="button" class="text-btn" id="use-default-model">使用默认模特</button>
+      <button type="button" class="text-btn" id="use-curated-model">使用当前精选模特</button>
+      <p class="privacy">照片只在你的浏览器里处理，不会上传。</p>
+      <p class="custom-note">自定义试穿是<strong>贴图预览</strong>，并非真实换装。商品链接无法直接抓取，请先把商品图保存到本地，再在这里上传。</p>
+    </aside>
+
+    <div class="custom-stage">
+      <div class="canvas-frame" id="canvas-frame">
+        <canvas id="tryon-canvas" aria-label="试穿画布"></canvas>
+        <div class="canvas-status" id="canvas-status" hidden></div>
+      </div>
+      <div class="custom-toolbar">
+        <p class="pose-status" id="pose-status">尚未识别姿态</p>
+        <label class="check-lbl"><input type="checkbox" id="show-pose"> 显示姿态点</label>
+        <button type="button" class="add-btn" id="download-png">下载效果图</button>
+      </div>
     </div>
 
-    <div class="strip pants-strip" id="pants-strip" aria-label="裤装"></div>
-  </main>
+    <aside class="custom-panel custom-panel-closet">
+      <h2 class="custom-h">我的衣橱</h2>
+      <div class="kind-toggle" role="group" aria-label="衣服类型">
+        <button type="button" class="is-on" data-kind="jacket" id="kind-jacket">上衣/外套</button>
+        <button type="button" data-kind="pants" id="kind-pants">裤子</button>
+      </div>
+      <div class="file-row">
+        <label class="file-btn">
+          上传衣服
+          <input type="file" id="upload-garment" accept="image/*" hidden>
+        </label>
+        <button type="button" class="text-btn" id="import-curated">导入精选单品</button>
+      </div>
+      <div class="wardrobe" id="wardrobe" aria-label="已保存的衣服"></div>
 
-  <footer class="dock">
-    <button type="button" class="chip" id="chip-jacket" title="将当前外套加入购物车">
-      <span class="chip-k">外套</span>
-      <span class="chip-v" id="jacket-name">驼色灯芯绒羽绒服</span>
-    </button>
-    <button type="button" class="chip" id="chip-pants" title="将当前裤装加入购物车">
-      <span class="chip-k">裤装</span>
-      <span class="chip-v" id="pants-name">沙色摇粒绒束脚裤</span>
-    </button>
-    <button type="button" class="add-btn" id="add-btn">加入购物车</button>
-  </footer>
+      <div class="adjust" id="adjust-panel" hidden>
+        <h3 class="custom-h custom-h-sm">调整 <span id="adjust-name"></span></h3>
+        <label class="slider-row">水平 <input type="range" id="adj-x" min="-200" max="200" value="0"><span class="slider-val" id="adj-x-val">0</span></label>
+        <label class="slider-row">垂直 <input type="range" id="adj-y" min="-200" max="200" value="0"><span class="slider-val" id="adj-y-val">0</span></label>
+        <label class="slider-row">大小 <input type="range" id="adj-scale" min="40" max="220" value="100"><span class="slider-val" id="adj-scale-val">100%</span></label>
+        <label class="slider-row">宽度 <input type="range" id="adj-sx" min="40" max="220" value="100"><span class="slider-val" id="adj-sx-val">100%</span></label>
+        <label class="slider-row">高度 <input type="range" id="adj-sy" min="40" max="220" value="100"><span class="slider-val" id="adj-sy-val">100%</span></label>
+        <label class="slider-row">旋转 <input type="range" id="adj-rot" min="-45" max="45" value="0" step="0.5"><span class="slider-val" id="adj-rot-val">0°</span></label>
+        <label class="slider-row">透明度 <input type="range" id="adj-op" min="20" max="100" value="100"><span class="slider-val" id="adj-op-val">100%</span></label>
+        <div class="adjust-actions">
+          <button type="button" class="text-btn" id="reset-fit">重新自动适配</button>
+          <button type="button" class="text-btn" id="take-off">脱下</button>
+        </div>
+      </div>
+    </aside>
+  </section>
 
   <div class="backdrop" id="backdrop" hidden></div>
   <aside class="drawer" id="cart-drawer" role="dialog" aria-labelledby="cart-title" aria-modal="true" hidden>
@@ -75,5 +146,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
+  <script src="custom.js"></script>
 </body>
 </html>

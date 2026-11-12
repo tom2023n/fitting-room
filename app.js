@@ -406,4 +406,9 @@ function boot() {
   });
 }
 
+window.FR = {
+  toast,
+  currentComboSrc() { return comboSrc(state.jacket, state.pants); },
+};
+
 document.addEventListener("DOMContentLoaded", boot);
