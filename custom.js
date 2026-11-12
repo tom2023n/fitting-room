@@ -74,6 +74,8 @@
     uploadKind: "jacket",
     showPose: false,
     dragging: null,
+    viewMode: "overlay", // "overlay" | "ai"
+    aiResult: null,      // { canvas, w, h, meta }
   };
 
   let db = null;
@@ -867,20 +869,29 @@
     ctx.restore();
   }
 
+  function activeView() {
+    if (state.viewMode === "ai" && state.aiResult) return state.aiResult;
+    return state.model;
+  }
+
   function render(opts = {}) {
     const canvas = opts.canvas || $("#tryon-canvas");
-    if (!canvas || !state.model) return;
-    const mw = state.model.w;
-    const mh = state.model.h;
-    const handles = opts.handles !== false;
+    const src = activeView();
+    if (!canvas || !src) return;
+    const mw = src.w;
+    const mh = src.h;
+    const handles = opts.handles !== false && state.viewMode !== "ai";
     const ctx = canvas.getContext("2d");
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // map image space → canvas
     const scale = canvas.width / mw;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
+    if (state.viewMode === "ai" && state.aiResult) {
+      ctx.drawImage(state.aiResult.canvas, 0, 0, mw, mh);
+      return;
+    }
     ctx.drawImage(state.model.canvas || state.model.img, 0, 0, mw, mh);
     if (state.worn.pants) drawGarment(ctx, state.worn.pants, { handles, selected: state.selected === "pants" });
     if (state.worn.jacket) drawGarment(ctx, state.worn.jacket, { handles, selected: state.selected === "jacket" });
@@ -890,14 +901,15 @@
   function layoutCanvas() {
     const canvas = $("#tryon-canvas");
     const frame = $("#canvas-frame");
-    if (!canvas || !frame || !state.model) return;
+    const src = activeView();
+    if (!canvas || !frame || !src) return;
     const r = frame.getBoundingClientRect();
     const pad = 4;
     const availW = Math.max(80, r.width - pad);
     const availH = Math.max(80, r.height - pad);
-    const fit = Math.min(availW / state.model.w, availH / state.model.h);
-    const cssW = state.model.w * fit;
-    const cssH = state.model.h * fit;
+    const fit = Math.min(availW / src.w, availH / src.h);
+    const cssW = src.w * fit;
+    const cssH = src.h * fit;
     const dpr = Math.min(2.5, window.devicePixelRatio || 1);
     canvas.style.width = cssW + "px";
     canvas.style.height = cssH + "px";
@@ -1081,7 +1093,7 @@
     let drag = null;
 
     canvas.addEventListener("pointerdown", (e) => {
-      if (!state.model) return;
+      if (!state.model || state.viewMode === "ai") return;
       const pt = eventToImage(e);
       const order = ["jacket", "pants"]; // top first for hit
       let hit = null;
@@ -1326,10 +1338,11 @@
   }
 
   async function downloadPNG() {
-    if (!state.model) return;
+    const src = activeView();
+    if (!src) return;
     const c = document.createElement("canvas");
-    c.width = state.model.w;
-    c.height = state.model.h;
+    c.width = src.w;
+    c.height = src.h;
     render({ canvas: c, handles: false });
     const blob = await canvasToBlob(c, "image/png");
     const a = document.createElement("a");
@@ -1355,7 +1368,7 @@
     const hint = $("#mode-hint");
     if (hint) {
       hint.textContent = custom
-        ? "上传照片与衣服，在本地贴图预览"
+        ? "上传照片与衣服，可贴图预览或使用 AI 试穿"
         : "两侧滑动，拖到模特身上，或点击单品试穿";
     }
     if (custom) {
@@ -1460,6 +1473,84 @@
     boot();
   }
 
+
+  function flattenOnWhite(src) {
+    const c = document.createElement("canvas");
+    c.width = src.width || src.w;
+    c.height = src.height || src.h;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(src.canvas || src, 0, 0, c.width, c.height);
+    return c;
+  }
+
+  async function canvasToFile(canvas, name, type = "image/jpeg", quality = 0.92) {
+    const blob = await canvasToBlob(canvas, type, quality);
+    return new File([blob], name, { type: blob.type || type });
+  }
+
+  function pickGarmentItem() {
+    const fromWorn = (kind) => {
+      const layer = state.worn[kind];
+      if (!layer) return null;
+      return state.wardrobe.find((x) => x.id === layer.id) || layer;
+    };
+    if (state.selected && state.worn[state.selected]) return fromWorn(state.selected);
+    return fromWorn("jacket") || fromWorn("pants") ||
+      state.wardrobe.find((x) => x.kind === "jacket") ||
+      state.wardrobe[0] ||
+      null;
+  }
+
+  async function getTryOnInputs() {
+    if (!state.model || !state.model.canvas) {
+      return { error: "请先上传或选择模特照片" };
+    }
+    const item = pickGarmentItem();
+    if (!item || !item.canvas) {
+      return { error: "请先上传并选择一件衣服" };
+    }
+    const personFile = await canvasToFile(state.model.canvas, "person.jpg");
+    const garmentFile = await canvasToFile(flattenOnWhite(item.canvas), "garment.jpg");
+    return {
+      personFile,
+      garmentFile,
+      name: item.name || "",
+      kind: item.kind || "jacket",
+    };
+  }
+
+  function setAIResult(source, meta) {
+    let canvas = source;
+    if (!(source instanceof HTMLCanvasElement)) {
+      canvas = document.createElement("canvas");
+      canvas.width = source.naturalWidth || source.width;
+      canvas.height = source.naturalHeight || source.height;
+      canvas.getContext("2d").drawImage(source, 0, 0);
+    }
+    state.aiResult = {
+      canvas,
+      w: canvas.width,
+      h: canvas.height,
+      meta: meta || {},
+    };
+    state.viewMode = "ai";
+    try {
+      window.dispatchEvent(new CustomEvent("fr-ai-view", { detail: { mode: "ai", meta: state.aiResult.meta } }));
+    } catch (_) {}
+    layoutCanvas();
+  }
+
+  function setViewMode(mode) {
+    if (mode === "ai" && !state.aiResult) return;
+    state.viewMode = mode === "ai" ? "ai" : "overlay";
+    try {
+      window.dispatchEvent(new CustomEvent("fr-ai-view", { detail: { mode: state.viewMode } }));
+    } catch (_) {}
+    layoutCanvas();
+  }
+
   window.CustomTryOn = {
     whenReady: () => readyPromise,
     getState: () => ({
@@ -1476,6 +1567,9 @@
       },
       wardrobe: state.wardrobe.map((x) => ({ id: x.id, name: x.name, kind: x.kind })),
       selected: state.selected,
+      viewMode: state.viewMode,
+      hasAIResult: !!state.aiResult,
+      aiMeta: state.aiResult ? state.aiResult.meta : null,
     }),
     setMode,
     importCurated,
@@ -1485,5 +1579,9 @@
     },
     layoutCanvas,
     render,
+    getTryOnInputs,
+    setAIResult,
+    setViewMode,
+    pickGarmentItem,
   };
 })();

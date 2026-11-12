@@ -74,8 +74,8 @@
       </div>
       <button type="button" class="text-btn" id="use-default-model">使用默认模特</button>
       <button type="button" class="text-btn" id="use-curated-model">使用当前精选模特</button>
-      <p class="privacy">照片只在你的浏览器里处理，不会上传。</p>
-      <p class="custom-note">自定义试穿是<strong>贴图预览</strong>，并非真实换装。商品链接无法直接抓取，请先把商品图保存到本地，再在这里上传。</p>
+      <p class="privacy">贴图预览的照片只在你的浏览器里处理，不会上传。使用「AI 试穿」时，照片和衣服会发送到 Hugging Face 的公开演示模型（yisol/IDM-VTON，备用 zhengchong/CatVTON），不经过本站点服务器。</p>
+      <p class="custom-note">贴图预览只是把衣服贴在照片上，并非真实换装。<strong>AI 试穿</strong>会调用免费在线模型生成更自然的效果，约 30–90 秒，受演示额度限制。商品链接无法直接抓取，请先把商品图保存到本地，再在这里上传。</p>
     </aside>
 
     <div class="custom-stage">
@@ -87,7 +87,9 @@
         <p class="pose-status" id="pose-status">尚未识别姿态</p>
         <label class="check-lbl"><input type="checkbox" id="show-pose"> 显示姿态点</label>
         <button type="button" class="add-btn" id="download-png">下载效果图</button>
+        <button type="button" class="add-btn ai-run-btn" id="ai-run-toolbar">AI 试穿（免费在线模型）</button>
       </div>
+      <p class="ai-status" id="ai-status-stage" role="status"></p>
     </div>
 
     <aside class="custom-panel custom-panel-closet">
@@ -119,6 +121,34 @@
           <button type="button" class="text-btn" id="take-off">脱下</button>
         </div>
       </div>
+
+      <div class="ai-panel" id="ai-panel">
+        <h3 class="custom-h custom-h-sm">AI 试穿（免费在线模型）</h3>
+        <p class="ai-lead">用当前模特照片和选中的衣服，调用公开演示模型生成试穿效果，约 30–90 秒。IDM-VTON 主要适合成衣上身；裤子或全身将优先尝试备用模型 CatVTON。贴图预览始终可离线使用。</p>
+        <label class="ai-field">衣服描述
+          <input type="text" id="ai-desc" maxlength="80" placeholder="例如：红色连帽拉链卫衣" autocomplete="off">
+        </label>
+        <div class="ai-cloth-row" id="ai-cloth-type-wrap">
+          <span class="ai-cloth-label">试穿范围</span>
+          <div class="kind-toggle" role="group" aria-label="试穿范围">
+            <button type="button" data-ai-cloth="upper" class="is-on" id="ai-cloth-upper">上衣</button>
+            <button type="button" data-ai-cloth="lower" id="ai-cloth-lower">裤子</button>
+            <button type="button" data-ai-cloth="overall" id="ai-cloth-overall">全身</button>
+          </div>
+        </div>
+        <button type="button" class="add-btn ai-run-btn" id="ai-run">AI 试穿（免费在线模型）</button>
+        <p class="ai-status" id="ai-status" role="status"></p>
+        <div class="ai-view-toggle" id="ai-view-toggle" hidden>
+          <button type="button" id="view-ai">查看 AI 结果</button>
+          <button type="button" id="view-overlay">查看贴图预览</button>
+        </div>
+        <details class="ai-advanced">
+          <summary>高级（可选）</summary>
+          <label class="ai-field">Hugging Face 令牌，仅存在本机，可提高免费额度
+            <input type="password" id="ai-token" autocomplete="off" spellcheck="false" placeholder="hf_… 可选">
+          </label>
+        </details>
+      </div>
     </aside>
   </section>
 
@@ -147,5 +177,6 @@
 
   <script src="app.js"></script>
   <script src="custom.js"></script>
+  <script src="ai-tryon.js"></script>
 </body>
 </html>
